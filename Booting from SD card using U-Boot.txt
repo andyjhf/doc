@@ -1,0 +1,71 @@
+HOWTO: Booting from SD card using U-Boot
+
+By Bill ? Saturday, January 30 2010, 00:34 
+
+
+Many many people want to know how to boot their Mini2440 or Micro2440 off of an SD card and I'm going to show you how.
+
+
+For this to work, you'll need to make sure you have U-Boot up and running on your device and that when you have an SD card in the slot, and type mmc, it recognizes your card. If not, you'll need to upgrade your u-boot to the latest. You can follow my directions here to compile and flash u-boot to your device.
+
+I'm using an 8GB SD card. I think they're pretty affordable these days to use 8 and 16GB cards. I don't see any reason to go smaller. But thats up to you. Depending on what you need, 2 and 4 might be ok
+
+SD Card Partition Scheme
+
+For this to work, you'll need to partition your SD card in to 3 partitions.
+Partition 1: Swap Space 512MB
+Partition 2: Boot Partition 20MB
+Partition 3: Root Filesystem - The remainder of the free space
+
+Since your device only has 64MB RAM, having a decent size swap partition is a good idea.
+
+SD Card File Systems
+
+You'll need to create file systems as follows.
+Run mkswap on /dev/mmcblk0p1
+Run mkfs.ext2fs on /dev/mmcblk0p2
+Run mkfs.ext3fs on /dev/mmcblk0p3
+
+Mount partitions 2 and 3 somewhere separate.
+
+Copying uImage and and Untarring the Rootfs to the SD card
+
+Now assuming you've successfully created a uImage kernel, and you've got a tar.gz'd root filesystem created by OpenEmbedded, you're ready for the next step. Otherwise read my entry here on getting started with OpenEmbedded.
+
+In your openembedded build directory, theres a deploy directory called tmp/deploy/glibc/images/mini2440/ which contains your jffs images, targz images and whatever other format you asked openembedded to make in its configuration. Change to that directory now.
+
+Copy whichever uImage you want from the above mentioned directory to where you mounted partition 2 (Your boot partition on the SD card). Rename it to uImage for making this easier.
+
+Now while still in your images directory inside your openembedded build directory, run the following command to untar and ungzip one of the root filesystems to your SD cards ext3 partition (Partition 3)
+sparky> $ tar xzvfo  xorg-image-rootfs.tar.gz  -C /path/to/mounted /sd/card/rootfs/partition
+
+You should now be able to unmount both partitions.
+
+Your SD card is finished and it's time to move on to configuring U-Boot....
+
+Configuring U-Boot to boot the kernel and rootfs from SD Card
+
+These are the bootarg and bootcmd environment variables you need to set on your Mini2440 or Micro2440.
+MINI2440# setenv bootcmd mmcinit \; ext2load mmc 0:2 0x31000000 uImage \; bootm 0x31000000
+MINI2440# saveenv
+
+What this does is tells U-Boot to first initialize the sd card reader, use the ext2load command to load from SD card 0, Partition 2 (the boot partition) the file uImage and store it at memory location 0x31000000, and then to finally use bootm to boot from memory location 0x31000000.
+
+Now we need to set the bootargs variable.
+MINI2440# setenv bootargs console=ttySAC0,115200 mini2440=1tb \ 
+rootfstype=ext3 root=/dev/mmcblk0p3 rw rootwait
+MINI2440# saveenv
+
+This tells u-boot to pass these options on to the kernel. Most importantly here is that your root device is partition 3 on the SD card, and that your filesystem time is ext3.
+
+UPDATE: Please make sure you've added a rootwait or bootdelay=3 to the end of your bootargs. This allows the kernel to wait for the SD card to become available/visible to the kernel.
+
+Conclusion
+
+That's basically it. I've read where some people needed a bootdelay on the bootargs for the kernel. I've not needed that. I followed my own instructions above and created a bootable system today so I know this works. At least for me. I'm happy to listen to anyone's success stories.
+
+I know these HOWTOs are a bit sloppy, but the commands are all here with a little explanation in plain english as to why you're doing this. I hope it helps. Please let me know of any corrections or if you see me doing anything extremely stupid. I'm still quite new to this.
+
+//Bill Sargent
+
+Questions? comments? Need help? Go to my forum here, and ask.
